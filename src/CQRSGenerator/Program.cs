@@ -66,6 +66,7 @@ namespace CQRSGenerator
             {
                 GenerateCreateCommand(entity);
                 GenerateUpdateCommand(entity);
+                GenerateDeleteCommand(entity);
             }
         }
 
@@ -137,8 +138,8 @@ namespace CQRSGenerator
             string entitySet = PluralizationProvider.Pluralize(entity.Name);
             template = template.Replace("<#EntitySet#>", entitySet);
 
-            string keyType = FindKeyTypeForEntity(entity);
-            template = template.Replace("<#returnType#>", keyType);
+            var key = FindKeyPropertyForEntity(entity);
+            template = template.Replace("<#returnType#>", GetTypeToDecalre(key.PropertyType, namespaces));
 
             // generating properties
             StringBuilder sb_definitions = new StringBuilder();
@@ -175,7 +176,10 @@ namespace CQRSGenerator
             File.WriteAllText(fileName, template);
         }
 
-
+        /// <summary>
+        /// Generates C# code file containig update command for the specified entity
+        /// </summary>
+        /// <param name="entity">entity type</param>
         private static void GenerateUpdateCommand(Type entity)
         {
             string fileName = GetGenerationFilePath("Commands", "Update", entity.Name);
@@ -201,9 +205,6 @@ namespace CQRSGenerator
             template = template.Replace("<#Entity#>", entity.Name);
             string entitySet = PluralizationProvider.Pluralize(entity.Name);
             template = template.Replace("<#EntitySet#>", entitySet);
-
-            string keyType = FindKeyTypeForEntity(entity);
-            template = template.Replace("<#returnType#>", keyType);
 
             // generating properties
             StringBuilder sb_definitions = new StringBuilder();
@@ -240,21 +241,69 @@ namespace CQRSGenerator
             File.WriteAllText(fileName, template);
         }
 
+        /// <summary>
+        /// Generates C# code file containig delete command for the specified entity
+        /// </summary>
+        /// <param name="entity">entity type</param>
+        private static void GenerateDeleteCommand(Type entity)
+        {
+            string fileName = GetGenerationFilePath("Commands", "Delete", entity.Name);
+            string template = File.ReadAllText("DeleteCommandTemplate.txt");
+
+            // adding default namespaces
+            List<string> namespaces = new List<string>();
+            namespaces.Add("using System;");
+            namespaces.Add("using MediatR;");
+            namespaces.Add("using System.Threading;");
+            namespaces.Add("using System.Threading.Tasks;");
+            namespaces.Add($"using {dbContext_interface_namespace};");
+            namespaces.Add($"using {exceptions_namespace};");
+            namespaces.Add($"using {entities_namespace};");
+
+            template = template.Replace("<#codeGenerateion_namespace#>", codeGenerateion_namespace);
+            template = template.Replace("<#dbContext_interface#>", dbContext_interface);
+
+            string className = $"Delete{entity.Name}Command";
+            template = template.Replace("<#ClassName#>", className);
+
+            template = template.Replace("<#Entity#>", entity.Name);
+            string entitySet = PluralizationProvider.Pluralize(entity.Name);
+            template = template.Replace("<#EntitySet#>", entitySet);
+
+            var key = FindKeyPropertyForEntity(entity);
+
+            // generating properties
+            StringBuilder sb_definitions = new StringBuilder();
+
+            // declare the property for command request
+            string p_type = GetTypeToDecalre(key.PropertyType, namespaces);
+            sb_definitions.Append($"public {p_type} {key.Name} {{ set; get; }}");
+            sb_definitions.Append(Environment.NewLine + "\t\t");
+
+
+            // writing namespaces
+            template = template.Replace("<#namespaces#>", string.Join(Environment.NewLine, namespaces));
+
+            // writing properties
+            template = template.Replace("<#Properties#>", sb_definitions.ToString());
+
+            // writing generated code inside the file
+            File.WriteAllText(fileName, template);
+        }
+
 
         /// <summary>
         /// Finds the key property of the entity which we use it as the response type for create command.
         /// </summary>
         /// <param name="entity">entity type to check</param>
         /// <returns>string type of the key property</returns>
-        private static string FindKeyTypeForEntity(Type entity)
+        private static PropertyInfo FindKeyPropertyForEntity(Type entity)
         {
-            var dd = dbContext.Model.FindEntityType(entity)
+            var key = dbContext.Model.FindEntityType(entity)
                  .FindPrimaryKey()
                  .Properties
-                 .Select(p => p)
                  .FirstOrDefault();
-
-            return GetTypeToDecalre(dd.PropertyInfo.PropertyType, new List<string>());
+            return key?.PropertyInfo;
         }
 
         /// <summary>

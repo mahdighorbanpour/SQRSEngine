@@ -1,0 +1,35 @@
+﻿<#namespaces#>
+
+namespace <#codeGenerateion_namespace#>.<#EntitySet#>.Commands.Delete<#Entity#>
+{
+    public class <#ClassName#> : IRequest
+    {
+        <#Properties#>
+
+        public class <#ClassName#>Handler : IRequestHandler<<#ClassName#>>
+        {
+            private readonly <#dbContext_interface#> _context;
+
+            public <#ClassName#>Handler(<#dbContext_interface#> context)
+            {
+                _context = context;
+            }
+
+            public async Task<Unit> Handle(<#ClassName#> request, CancellationToken cancellationToken)
+            {
+                var entity = await _context.<#EntitySet#>.FindAsync(request.Id);
+
+                if (entity == null)
+                {
+                    throw new NotFoundException(nameof(<#Entity#>), request.Id);
+                }
+
+                _context.<#EntitySet#>.Remove(entity);
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return Unit.Value;
+            }
+        }
+    }
+}

@@ -18,6 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DeleteCommandTemplate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="UpdateCommandTemplate.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
