@@ -20,6 +20,7 @@ namespace CQRSGenerator
         static readonly string entities_namespace = "SampleApp.Domain.Entities";
         static readonly string enities_assembly = "SampleApp.Domain";
 
+        static readonly string exceptions_namespace = "SampleApp.Application.Common.Exceptions";
         static readonly string dbContext_interface_namespace = "SampleApp.Application.Common.Interfaces";
         static readonly string dbContext_interface = "IApplicationDbContext";
 
@@ -37,6 +38,13 @@ namespace CQRSGenerator
         // You can define a list of property names specific to each entity,to be excleded when generating create command.
         static readonly Dictionary<string, List<string>> excluded_properties_create_mapping = new Dictionary<string, List<string>>();
 
+        // You can define a list of general property names to be excleded when generating create command.
+        static readonly List<string> excluded_properties_update = new List<string>() { "CreatedBy", "Created", "LastModifiedBy", "LastModified" };
+
+        // You can define a list of property names specific to each entity,to be excleded when generating create command.
+        static readonly Dictionary<string, List<string>> excluded_properties_update_mapping = new Dictionary<string, List<string>>();
+
+
         static void Main(string[] args)
         {
             DbContextOptionsBuilder optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>().UseInMemoryDatabase("SQRS");
@@ -46,6 +54,7 @@ namespace CQRSGenerator
 
             PreLoadTypeMappings();
             PreLoadCreateExcludedProperties();
+            PreLoadUpdateExcludedProperties();
 
             Assembly assembly = Assembly.Load(enities_assembly);
             Type[] entityList = assembly
@@ -56,6 +65,7 @@ namespace CQRSGenerator
             foreach (Type entity in entityList.Where(t => t.BaseType == typeof(AuditableEntity)))
             {
                 GenerateCreateCommand(entity);
+                GenerateUpdateCommand(entity);
             }
         }
 
@@ -87,6 +97,15 @@ namespace CQRSGenerator
         {
             var Excludes_TodoList = new List<string>() { "Items" };
             excluded_properties_create_mapping.Add("TodoList", Excludes_TodoList);
+        }
+        
+        /// <summary>
+        /// Excludes some properties for each entity
+        /// </summary>
+        private static void PreLoadUpdateExcludedProperties()
+        {
+            var Excludes_TodoList = new List<string>() { "List" };
+            excluded_properties_update_mapping.Add("TodoItem", Excludes_TodoList);
         }
 
         /// <summary>
@@ -155,6 +174,72 @@ namespace CQRSGenerator
             // writing generated code inside the file
             File.WriteAllText(fileName, template);
         }
+
+
+        private static void GenerateUpdateCommand(Type entity)
+        {
+            string fileName = GetGenerationFilePath("Commands", "Update", entity.Name);
+            string template = File.ReadAllText("UpdateCommandTemplate.txt");
+
+            // adding default namespaces
+            List<string> namespaces = new List<string>();
+            namespaces.Add("using System;");
+            namespaces.Add("using System.Collections.Generic;");
+            namespaces.Add("using MediatR;");
+            namespaces.Add("using System.Threading;");
+            namespaces.Add("using System.Threading.Tasks;");
+            namespaces.Add($"using {dbContext_interface_namespace};");
+            namespaces.Add($"using {exceptions_namespace};");
+            namespaces.Add($"using {entities_namespace};");
+
+            template = template.Replace("<#codeGenerateion_namespace#>", codeGenerateion_namespace);
+            template = template.Replace("<#dbContext_interface#>", dbContext_interface);
+
+            string className = $"Update{entity.Name}Command";
+            template = template.Replace("<#ClassName#>", className);
+
+            template = template.Replace("<#Entity#>", entity.Name);
+            string entitySet = PluralizationProvider.Pluralize(entity.Name);
+            template = template.Replace("<#EntitySet#>", entitySet);
+
+            string keyType = FindKeyTypeForEntity(entity);
+            template = template.Replace("<#returnType#>", keyType);
+
+            // generating properties
+            StringBuilder sb_definitions = new StringBuilder();
+            StringBuilder sb_assigments = new StringBuilder();
+
+            foreach (var p in entity.GetProperties().Where(x => x.CanWrite && x.CanRead && x.MemberType == MemberTypes.Property))
+            {
+                // exclude this property if it's in the general exclution list or in the specific list for current entity
+                if (excluded_properties_update.Contains(p.Name) ||
+                    (excluded_properties_update_mapping.ContainsKey(entity.Name) &&
+                    excluded_properties_update_mapping.GetValueOrDefault(entity.Name).Contains(p.Name)))
+                    continue;
+
+                // declare the property for command request
+                string p_type = GetTypeToDecalre(p.PropertyType, namespaces);
+                sb_definitions.Append($"public {p_type} {p.Name} {{ set; get; }}");
+                sb_definitions.Append(Environment.NewLine + "\t\t");
+
+                // assign request properties to the entity
+                sb_assigments.Append($"entity.{p.Name} = request.{p.Name};");
+                sb_assigments.Append(Environment.NewLine + "\t\t\t\t");
+            }
+
+            // writing namespaces
+            template = template.Replace("<#namespaces#>", string.Join(Environment.NewLine, namespaces));
+
+            // writing properties
+            template = template.Replace("<#Properties#>", sb_definitions.ToString());
+
+            // writing assigments inside command handler
+            template = template.Replace("<#PropertiesAssigments#>", sb_assigments.ToString());
+
+            // writing generated code inside the file
+            File.WriteAllText(fileName, template);
+        }
+
 
         /// <summary>
         /// Finds the key property of the entity which we use it as the response type for create command.
