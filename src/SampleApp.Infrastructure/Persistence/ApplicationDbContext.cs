@@ -37,7 +37,6 @@ namespace SampleApp.Infrastructure.Persistence
                         break;
                 }
             }
-
             return base.SaveChangesAsync(cancellationToken);
         }
 

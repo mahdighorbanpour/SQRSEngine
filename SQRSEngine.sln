@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleApp.API", "src\Sample
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleApp.Infrastructure", "src\SampleApp.Infrastructure\SampleApp.Infrastructure.csproj", "{8C89F9C5-CD76-473F-A358-3BB6DE0E7472}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleApp.Application", "src\SampleApp.Application\SampleApp.Application.csproj", "{8F692710-4B81-455F-88C9-5E9C7087CDEC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleApp.Application", "src\SampleApp.Application\SampleApp.Application.csproj", "{8F692710-4B81-455F-88C9-5E9C7087CDEC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CQRSGenerator", "src\CQRSGenerator\CQRSGenerator.csproj", "{D727C2D2-3302-477A-923F-62609255954C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{8F692710-4B81-455F-88C9-5E9C7087CDEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8F692710-4B81-455F-88C9-5E9C7087CDEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8F692710-4B81-455F-88C9-5E9C7087CDEC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D727C2D2-3302-477A-923F-62609255954C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D727C2D2-3302-477A-923F-62609255954C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D727C2D2-3302-477A-923F-62609255954C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D727C2D2-3302-477A-923F-62609255954C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
