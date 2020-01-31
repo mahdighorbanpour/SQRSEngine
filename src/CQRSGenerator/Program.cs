@@ -3,15 +3,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Microsoft.EntityFrameworkCore.Design;
 using PluralizeService.Core;
 using System.Text;
-using SampleApp.Domain.Common;
 using System.Collections.Generic;
-using SampleApp.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using IdentityServer4.EntityFramework.Options;
+using SampleApp.Domain.Common;
+using SampleApp.Infrastructure.Persistence;
 
 namespace CQRSGenerator
 {
@@ -56,15 +54,17 @@ namespace CQRSGenerator
             PreLoadCreateExcludedProperties();
             PreLoadUpdateExcludedProperties();
 
+            // loading enetites assembly
             Assembly assembly = Assembly.Load(enities_assembly);
             Type[] entityList = assembly
                 .GetTypes()
-                .Where(t => t.IsClass && t.Namespace == entities_namespace)
+                .Where(t => t.IsClass && t.Namespace == entities_namespace && !t.IsInterface && !t.IsAbstract)
                 .ToArray();
 
             foreach (Type entity in entityList.Where(t => t.BaseType == typeof(AuditableEntity)))
             {
                 GenerateCreateCommand(entity);
+                GenerateCreateCommandValidator(entity);
                 GenerateUpdateCommand(entity);
                 GenerateDeleteCommand(entity);
             }
@@ -171,6 +171,75 @@ namespace CQRSGenerator
 
             // writing assigments inside command handler
             template = template.Replace("<#PropertiesAssigments#>", sb_assigments.ToString());
+
+            // writing generated code inside the file
+            File.WriteAllText(fileName, template);
+        }
+
+        /// <summary>
+        /// Generates C# code file containig create validator command for the specified entity
+        /// </summary>
+        /// <param name="entity">entity type</param>
+        private static void GenerateCreateCommandValidator(Type entity)
+        {
+            string fileName = GetGenerationFilePath("Commands", "Create", entity.Name, true);
+            string template = File.ReadAllText("CreateCommandValidatorTemplate.txt");
+
+            template = template.Replace("<#codeGenerateion_namespace#>", codeGenerateion_namespace);
+
+            string className = $"Create{entity.Name}Command";
+            template = template.Replace("<#ClassName#>", className);
+
+            template = template.Replace("<#Entity#>", entity.Name);
+            string entitySet = PluralizationProvider.Pluralize(entity.Name);
+            template = template.Replace("<#EntitySet#>", entitySet);
+
+            // generating properties
+            StringBuilder sb_rules = new StringBuilder();
+
+            var annotations = dbContext.Model.FindEntityType(entity).GetAnnotations();
+            var CheckConstraints = dbContext.Model.FindEntityType(entity).GetCheckConstraints();
+            var DeclaredForeignKeys = dbContext.Model.FindEntityType(entity).GetDeclaredForeignKeys();
+            var DeclaredNavigations = dbContext.Model.FindEntityType(entity).GetDeclaredNavigations();
+            var DeclaredProperties = dbContext.Model.FindEntityType(entity).GetDeclaredProperties();
+            var DeclaredReferencingForeignKeys = dbContext.Model.FindEntityType(entity).GetDeclaredReferencingForeignKeys();
+
+            foreach (var p in dbContext.Model.FindEntityType(entity).GetDeclaredProperties().Where(x => x.ValueGenerated == Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never))
+            {
+                // exclude this property if it's in the general exclution list or in the specific list for current entity
+                if (excluded_properties_create.Contains(p.Name) ||
+                    (excluded_properties_create_mapping.ContainsKey(entity.Name) &&
+                    excluded_properties_create_mapping.GetValueOrDefault(entity.Name).Contains(p.Name)))
+                    continue;
+
+                // declare rules for the property
+                List<string> rules = new List<string>();
+
+                // check if it's required. exclude types that are not null by default and have a default value like int
+                if (!p.IsNullable && !p.ClrType.IsValueType)
+                {
+                    if (p.ClrType == typeof(string))
+                        rules.Add(".NotEmpty()");
+                    else
+                        rules.Add(".NotNull()");
+                }
+
+                // check if it has a fixed length
+                if (p.IsFixedLength())
+                    rules.Add($".Length({p.GetMaxLength()})");
+                else if (p.GetMaxLength().HasValue) // check if it has a max length
+                    rules.Add($".MaximumLength({p.GetMaxLength()})");
+
+                if (rules.Count > 0)
+                {
+                    sb_rules.Append($"RuleFor(v => v.{p.Name})" + Environment.NewLine + "\t\t\t\t");
+                    sb_rules.Append(string.Join(Environment.NewLine + "\t\t\t\t", rules));
+                    sb_rules.Append(";");
+                    sb_rules.Append(Environment.NewLine + "\t\t\t");
+                }
+            }
+
+            template = template.Replace("<#rules#>", sb_rules.ToString());
 
             // writing generated code inside the file
             File.WriteAllText(fileName, template);

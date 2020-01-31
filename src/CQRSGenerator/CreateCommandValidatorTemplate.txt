@@ -1,0 +1,13 @@
+﻿using FluentValidation;
+
+namespace <#codeGenerateion_namespace#>.<#EntitySet#>.Commands.Create<#Entity#>
+{
+    public class <#ClassName#>Validator : AbstractValidator<<#ClassName#>>
+    {
+
+        public <#ClassName#>Validator()
+        {
+            <#rules#>
+        }
+    }
+}

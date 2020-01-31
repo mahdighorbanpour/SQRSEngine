@@ -18,6 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="CreateCommandValidatorTemplate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DeleteCommandTemplate.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
